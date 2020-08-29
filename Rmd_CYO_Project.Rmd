@@ -1,0 +1,328 @@
+---
+title: "Rmd_CYO_Project"
+author: "Md. Shakir Moazzem"
+date: "8/29/2020"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+---
+
+# Introduction
+
+In machine learning and statistics, classification is the problem of identifying to which of a set of categories (sub-populations) a new observation belongs, on the basis of a training set of data containing observations (or instances) whose category membership is known. Examples are assigning a given email to the "spam" or "non-spam" class, and assigning a diagnosis to a given patient based on observed characteristics of the patient (sex, blood pressure, presence or absence of certain symptoms, etc.). An algorithm that implements classification, especially in a concrete implementation, is known as a classifier [1].
+
+In this project a classifier for wheat seeds is developed based on the *Seeds* dataset. In order to achieve this goal, 6 models are proposed and evaluated, one of them being the ensemble of the other 5.
+
+# Objetive
+
+The objetive of the project consists on developing a a classifier for wheat seeds based on the *Seeds* dataset, provided by the Center for Machine Learning and Intelligent Systems of UCI.
+
+This work is part of the *Data Science: Capstone* course of the *HarvardX Data Science Professional Program*.
+
+
+
+# Methodology
+
+The following task were performed in order to develop the recommender system:
+
+* Data load: Data is extractd from the original source and loaded in our work environment.
+* Data processing: Transformations are applied on data in order to obtain the features that will be used in the following sections of the study.
+* Data exploration: Different visualization techniques are used to obtain insights about the predictors and their behaviour. 
+* Classification algorithms: Six classifiers are evaluated in order to identify the most accurate one. 
+
+
+## Data load
+
+Before start working on the dataset, it is necessary to add the required libraries.
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+set.seed(7)
+library(matrixStats)
+library(tidyverse)
+library(caret)
+library(dslabs)
+library(hopach)
+library(ggfortify)
+library(ggplot2)
+library(gridExtra)
+library(grid)
+```
+
+
+The dataset must be previously downloaded from the follwing link 
+https://archive.ics.uci.edu/ml/datasets/seeds and then copied in the project directory. 
+
+
+```{r, echo = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
+seeds <- read.delim("seeds_dataset.txt")
+  
+```
+
+```{r head_validation, echo = TRUE}
+head(seeds) %>%
+  print.data.frame()
+  
+```
+
+These dataset contains seven predictors and the class of each sample. According to the dataset documentation, the predictors are: Area, Perimeter, Compactness, Kernel length, Kernel width, Asymmetry, and Kernel groove, whereas the classes are Kama, Rosa and Canadian.
+
+We additionally perform a summary in order to check if there are missing values.
+
+
+```{r summary_edx, echo = TRUE}
+summary(seeds)
+```
+
+
+## Data processing
+
+
+As result of the *summary* performed in the last section, we observe the presence of missing values in the dataset. It is necessary to delete them with the next line of code.
+
+```{r na, echo = TRUE}
+seeds <- na.omit(seeds)
+```
+
+Now we proceed to add the names of each column according to their meaning.
+
+```{r names, tidy=TRUE, echo = TRUE}
+names(seeds) <- c("Area","Perimeter","Compactness","Kernel_length","Kernel_width",
+                  "Asymmetry","kernel_groove","Class")
+```
+
+Finally we replace the class (1, 2 and 3) with their names too (Kama, Rosa and Canadian).
+
+```{r class, echo = TRUE}
+y <- seeds$Class # We save the original values since they will be useful later
+seeds$Class <- replace(seeds$Class, seeds$Class==1.00, "Kama") %>% replace(
+  seeds$Class==2.00, "Rosa") %>% replace(seeds$Class==3.00, "Canadian")
+head(seeds) %>%
+  print.data.frame()
+```
+
+
+## Data exploration 
+
+In this section we analyze the *seeds* object. We generate histograms for each feature in order to visualize how these predictors behave for each class. 
+
+```{r visualization , echo = TRUE}
+D1 <-    ggplot(seeds, aes(x=Area, colour=Class, fill=Class)) +
+  geom_density(alpha=.3) +
+  xlab("Area") +  
+  ylab("Density")+
+  theme(legend.position="none")
+D2 <- ggplot(seeds, aes(x=Perimeter, colour=Class, fill=Class)) +
+  geom_density(alpha=.3) +
+  xlab("Perimeter") +  
+  ylab("Density")
+D3 <- ggplot(seeds, aes(x=Compactness, colour=Class, fill=Class)) +
+  geom_density(alpha=.3) +
+  xlab("Compactness") +  
+  ylab("Density")+
+  theme(legend.position="none")
+D4 <- ggplot(seeds, aes(x=Kernel_length, colour=Class, fill=Class)) +
+  geom_density(alpha=.3) +
+  xlab("Kernel_length") +  
+  ylab("Density")+
+  theme(legend.position="none")
+D5 <- ggplot(seeds, aes(x=Kernel_width, colour=Class, fill=Class)) +
+  geom_density(alpha=.3) +
+  xlab("Kernel_width") +  
+  ylab("Density")+
+  theme(legend.position="none")
+D6 <- ggplot(seeds, aes(x=Asymmetry, colour=Class, fill=Class)) +
+  geom_density(alpha=.3) +
+  xlab("Asymmetry") +  
+  ylab("Density")+
+  theme(legend.position="none")
+D7 <- ggplot(seeds, aes(x=kernel_groove, colour=Class, fill=Class)) +
+  geom_density(alpha=.3) +
+  xlab("kernel_groove") +  
+  ylab("Density")+
+  theme(legend.position="none")
+# Plot all density visualizations
+grid.arrange(D1 + ggtitle(""),
+             D2  + ggtitle(""),
+             D3 + ggtitle(""),
+             D4 + ggtitle(""),
+             D5  + ggtitle(""),
+             D6 + ggtitle(""),
+             D7 + ggtitle(""),
+             nrow = 4,
+             top = textGrob("Wheat seeds Density Plot", 
+                            gp=gpar(fontsize=15))
+)
+```
+
+Additionally we create *Box plots* for each feature to complement the analysis.
+
+```{r boxplot , echo = TRUE}
+grid.arrange(
+  ggplot(seeds, aes(Class, Area)) + geom_boxplot() + ggtitle(""),
+  ggplot(seeds, aes(Class, Perimeter)) + geom_boxplot() + ggtitle(""),
+  ggplot(seeds, aes(Class, Compactness)) + geom_boxplot() + ggtitle(""),
+  ggplot(seeds, aes(Class, Kernel_length)) + geom_boxplot() + ggtitle(""),
+  ggplot(seeds, aes(Class, Kernel_width)) + geom_boxplot() + ggtitle(""),
+  ggplot(seeds, aes(Class, Asymmetry)) + geom_boxplot() + ggtitle(""),
+  ggplot(seeds, aes(Class, kernel_groove)) + geom_boxplot() + ggtitle(""),
+  
+             top = textGrob("Wheat seeds Box Plot", 
+                            gp=gpar(fontsize=15)))
+```
+
+
+Although we can appreciate some patters in the previous histograms, the classification between classes is not evident. As consequence, we need to apply machine learning algorithms called *Classifiers*.
+
+## Classification system
+As we stated, the objetive consists on developong an algorith to classify wheat seeds in 3 different classes using the features provided in the *Seeds* dataset.
+
+We evaluate 6 different models and finally we select the best one. As evaluation criteria, we use *Accuracy*, which is the degree of closeness of measurements of a quantity to that quantity's true value [2].
+
+### Normalization
+
+Before proceeding with the classifiers, it is necessary to normalize data. The goal of normalization is to change the values of numeric columns in the dataset to a common scale, without distorting differences in the ranges of values [3].
+
+To achieve that, we substract the mean and divide by the standard deviation every value $X$ of each feature $i$. 
+$$ x = \frac{X -\mu_{i}}{ \sigma{i}} $$
+
+The following code computes this operation.
+
+```{r, echo = TRUE}
+seeds_x <- data.frame(seeds[,1:7]) # Separate predictors and the target variable
+seeds_y <- data.frame(seeds[,8])
+df_means=t(apply(seeds_x,2,mean))
+df_sds=t(apply(seeds_x,2,sd))
+df=sweep(sweep(seeds_x,2,df_means,"-"),2,df_sds,"/")
+x_scaled <- df
+```
+
+### Training and testing sets
+
+In order to validate the performance of the algorithm, it is required to split the dataset into training and testing sets. All the classifiers will be developed using the training set and later evaluated on the testing set. In this study we assign 80% of the dataset for training and 20% for testing.
+
+```{r partition, echo = TRUE}
+test_index <- createDataPartition(seeds_x$Perimeter, times = 1, p = 0.2, 
+                                  list = FALSE) # Create the partition
+test_x <- x_scaled[test_index,] # Testing set
+test_y <- y[test_index]
+train_x <- x_scaled[-test_index,] # Training set
+train_y <- seeds_y[-test_index]
+train_df <- data.frame(train_x )
+train_df["y"] <- train_y
+```
+
+### Classification algorithms
+
+In this project we use the following classification algorighms:
+
+* Linear discriminant analysis (LDA)[4]
+* Quadratic discriminant analysis (QDA) [5]
+* Locally estimated scatterplot smoothing (LOESS) [6]
+* Random forest (RF) [7]
+* K nearest neighbours (Knn) [8]
+
+First we use the LDA algorithm to make predictions.
+
+```{r lda, echo = TRUE, warning = FALSE}
+# LDA
+fit <- train(y ~ ., method = "lda", data = train_df) # Creation of model
+lda_preds <- predict(fit,test_x) # Predictions using the model
+lda_preds
+```
+
+Now we replace the factors in the *lda_preds* for numbers according to the data pre processing we performed at the begining (Kama = 1, Rosa = 2, Canadian = 3). 
+
+```{r lda_levels, echo = TRUE, warning = FALSE}
+levels(lda_preds) <- c(3,1,2) # Change levels according to data pre processing.
+lda_preds
+```
+
+Finally we calculate the accuracy and save it a table.
+
+```{r lda_accuracy, echo = TRUE, warning = FALSE}
+lda_accuracy <- mean(lda_preds == test_y) # LDA accuracy
+results <- data_frame(Algorithm = "LDA", Accuracy = lda_accuracy ) # Table with results
+results %>% knitr::kable()
+```
+
+We repeat the process for the rest of the algorithms.
+
+```{r algorithms, echo = TRUE, warning = FALSE, message= FALSE}
+# QDA
+fit <- train(y ~ ., method = "qda", data = train_df)
+qda_preds <- predict(fit,test_x)
+levels(qda_preds) <- c(3,1,2)
+qda_accuracy <- mean(qda_preds == test_y)
+results <- bind_rows(results, data_frame(Algorithm = "QDA", Accuracy = qda_accuracy ))
+# LOESS
+fit <- train(y ~ ., method = 'gamLoess', data = train_df)
+loess_preds <- predict(fit,test_x)
+levels(loess_preds) <- c(3,1,2)
+loess_accuracy <- mean(loess_preds == test_y)
+results <- bind_rows(results, data_frame(Algorithm = "LOESS", Accuracy = loess_accuracy ))
+# Random Forest
+fit <- train(y ~ ., method = 'rf', data = train_df,metric = "Accuracy",tuneGrid =
+               expand.grid(.mtry=c(3,5,7,9)))
+rf_preds <- predict(fit,test_x)
+levels(rf_preds) <- c(3,1,2)
+rf_accuracy <- mean(rf_preds == test_y)
+results <- bind_rows(results, data_frame(Algorithm = "RF", Accuracy = rf_accuracy ))
+# K nearest neighbours
+fit <- train(y ~ ., data = train_df, method = "knn", tuneLength = seq(3,21,2))
+knn_preds <- predict(fit,test_x)
+levels(knn_preds) <- c(3,1,2)
+knn_accuracy <- mean(knn_preds == test_y)
+results <- bind_rows(results, data_frame(Algorithm = "Knn", Accuracy = knn_accuracy ))
+```
+
+Additionally we perform and ensemble of this algorithms in order to obtain a system which makes its decisions based on majority vote.
+
+```{r ensemble, echo = TRUE, warning = FALSE}
+# We create a dataframe containing the results of each algorithm. 
+#It is necessary to convert every prediction from factor to numeric.
+ensemble <- cbind(lda =as.numeric(as.character(lda_preds)), 
+                  qda =  as.numeric(as.character(qda_preds)), 
+                  rf = as.numeric(as.character(rf_preds)), 
+                  loess = as.numeric(as.character(loess_preds)), 
+                  knn = as.numeric(as.character(knn_preds)))
+# Now we calculate the majority vote for each sample
+ensemble_preds  <- apply(ensemble[,-1], 1, function(idx) {
+  which(tabulate(idx) == max(tabulate(idx)))
+})
+sapply(ensemble_preds, paste, sep="", collapse = "")
+# Accuracy is calculated
+ensemple_accuracy <- mean(na.omit(as.numeric(as.character(ensemble_preds)) == test_y))
+results <- bind_rows(results, data_frame(Algorithm = "Ensemble", 
+                                         Accuracy = ensemple_accuracy )) # Save results
+```
+
+# Results
+
+The accuracy of each the model are located in the following table:
+
+```{r results, echo = FALSE}
+results %>% knitr::kable()
+```
+
+We therefore conclude that the highest accuracy was 0.9756098 using the *LDA* algorithm. Except for *LOESS* algorithm, we can affirm that the rest of the classifiers obtained decent results too.
+
+# Conclusions
+
+We can succesfully state that we built a machine learning algorithm to classify wheat seeds based on the Seeds dataset.
+The *LDA* algorithm proved to be the most accurate classifier in the present project, obtaining an accuracy of 0.9756098.
+
+# Future works
+
+We have obtained a recommender system that provides accurate results for wheat seed classification. This algorithm was developed following data exploration analysis and machine learning algorithms. It would be convenient for future works to add more classification algorithms to the ensemble in order to improve accuracy and generate a more robust system.
+
+# References
+* [1] - Wikipedia - Statistical classification -  https://en.wikipedia.org/wiki/Statistical_classification
+* [2] - JCGM 200:2008 International vocabulary of metrology — Basic and general concepts and associated terms (VIM).
+* [3] - Medium - Why Data Normalization is necessary for Machine Learning models - https://medium.com/@urvashilluniya/why-data-normalization-is-necessary-for-machine-learning-models-681b65a05029
+* [4] - Wikipedia - Linear discriminant analysis - https://en.wikipedia.org/wiki/Linear_discriminant_analysis
+* [5] - Wikipedia - Quadratic classifier - https://en.wikipedia.org/wiki/Quadratic_classifier
+* [6] - Wikipedia - Local regression - https://en.wikipedia.org/wiki/Local_regression
+* [7] - Wikipedia - Random forest - https://en.wikipedia.org/wiki/Random_forest
+* [8] - Wikipedia - K nearest neightbours algorithm - https://en.wikipedia.org/wiki/K-nearest_neighbors_algorithm
